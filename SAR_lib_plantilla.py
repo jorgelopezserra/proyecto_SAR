@@ -298,6 +298,8 @@ class SAR_Indexer:
 
         file_or_dir = Path(root)
 
+        docid = 0 #identificador del documento indexado
+
         if file_or_dir.is_file():
             # is a file
             self.index_file(root)
@@ -307,7 +309,8 @@ class SAR_Indexer:
                 for filename in sorted(files):
                     if filename.endswith('.json'):
                         fullname = os.path.join(d, filename)
-                        self.index_file(fullname)
+                        self.index_file(fullname, docid)
+                        docid += 1
         else:
             print(f"ERROR:{root} is not a file nor directory!", file=sys.stderr)
             sys.exit(-1)
@@ -329,47 +332,104 @@ class SAR_Indexer:
         """
         
         article = json.loads(raw_line)
-        sec_names = []
-        txt_secs = ''
+        sec_names = []   #nombres de las secciones y subsecciones
+        txt_secs = ''    #texto de las secciones y subsecciones
+
         for sec in article['sections']:
+            #se añade el texto de cada sección añadiendo antes el nombre de la sección
             txt_secs += sec['name'] + '\n' + sec['text'] + '\n'
+
+            #se añade el texto de las subsecciónes añadiendo antes el nombre de la subsección
             txt_secs += '\n'.join(subsec['name'] + '\n' + subsec['text'] + '\n' for subsec in sec['subsections']) + '\n\n'
+
             sec_names.append(sec['name'])
             sec_names.extend(subsec['name'] for subsec in sec['subsections'])
         article.pop('sections') # no la necesitamos
+
+        #se añade una clave 'all' con el texto completo del artículo (titulo + resumen + texto de las secciones y subsecciones)
         article['all'] = article['title'] + '\n\n' + article['summary'] + '\n\n' + txt_secs
+
+        #nombre de las secciones y subsecciones
         article['section-name'] = '\n'.join(sec_names)
 
         return article
 
 
-    def index_file(self, filename:str):
+    def index_file(self, filename:str, docid:int):
         """
 
         Indexa el contenido de un fichero.
 
-        input: "filename" es el nombre de un fichero generado por el Crawler cada línea es un objeto json
+        input: 
+            "filename" es el nombre de un fichero generado por el Crawler cada línea es un objeto json
             con la información de un artículo de la Wikipedia
+            "docid" es un identificador del documento que se indexa, necesario para el índice invertido   
+
+        MODIFICA SELF.INDEX, SELF.DOCS Y SELF.ARTICLES
+        Depende de self.positional para el tipo de indexado:
+            Si self.positional es True el formato de self index es termino --> [frecuencia del término, {artid: [posiciones del término en el artículo]}]
+            Si self.positional es False el formato de self index es termino --> [artid de los artículos en los que aparece]      
 
         NECESARIO PARA TODAS LAS VERSIONES
 
         dependiendo del valor de self.positional se debe ampliar el indexado
 
         """
+        
+        self.docs[docid] = filename # se añade el documento al diccionario de documentos, con su docid y su ruta
 
+
+        #i es un identificador de artículo dentro de un docuemento.
         for i, line in enumerate(open(filename)):
+            #se convierte la línea del fichero en un diccionario con la información del artículo
             j = self.parse_article(line)
 
+            if self.already_in_index(j['url']):
+                continue #si el artículo ya ha sido indexado, se salta
+            else:
+                self.urls.add(j['url']) #si la url no ha sido indexada, se añade a las urls procesadas
 
-        #
-        # 
-        # Solo se debe indexar el contenido self.DEFAULT_FIELD
-        #
-        #
-        #
-        #################
-        ### COMPLETAR ###
-        #################
+            
+            # identificador del artículo y del documento, se puede saber el documento al que
+            #pertenece y que artículo dentro del documento es
+            article_id = f'{docid}_{i}'
+            self.articles[article_id] = (docid, i) # se añade el artículo al diccionario de artículos, es una tupla del docid y la línea dentro del documento
+
+
+            #Tokenizamos el texto a indexar, que es la clave DEFAULT_FIELD, el método tokenize pasa todo a minúsculas
+            # y elimina los símbolos no alfanuméricos. Función ya dada
+            texto_tokenizado = self.tokenize(j[self.DEFAULT_FIELD])
+
+            """
+            Actualizamos el índice invertido, comprobamos si el término ya está en el índice, si no lo añadimos con una posting list vacía.
+            Añadimos el artículo a la posting list del término.
+            """
+            num_term = 0 #contador del número de término del artículo, necesario para el indexado posicional
+            for term in texto_tokenizado:
+                #si no está, añadimos la posting list con el contador a 0 y la lista de artículos en las que aparece
+
+                if self.positional:
+                    if term not in self.index:
+                        #creamos la entgrada del término como la frecuencia del término y unn diccionario con los artículos en los que aparece y sus posiciones en cada artículo
+                        self.index[term] = [0, {}]
+                    self.index[term][0] += 1 # incrementamos el contador de apariciones del término
+                    dict_articulos = self.index[term][1]
+
+                    #si el artículo no está en la posting list, creamos la lista de posiciones vacía
+                    if article_id not in dict_articulos:
+                        dict_articulos[article_id] = []
+                    
+                    #añadimos la posición del término en el artículo
+                    dict_articulos[article_id].append(num_term)
+                    #ACLARACIÓN: como son diccionarios, al hacer dict_articulos = self.index[term][1] estamos enlazando las variables,
+                    # todo cambio hecho a dict_articulos lo estamos haciendo en self.index[term][1]
+                    num_term += 1
+                else:
+                    if term not in self.index:
+                        self.index[term] = []
+                    if article_id not in self.index[term]: #si el artículo no está en la posting list, lo añadimos
+                        self.index[term].append(article_id) 
+
 
 
     def tokenize(self, text:str):
@@ -459,7 +519,9 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
-        pass
+
+        #Simplemente devuelve la posting list del término o vacía si no se ha indexado el término
+        return self.index.get(term, [])
 
 
 
@@ -496,11 +558,17 @@ class SAR_Indexer:
         return: posting list con todos los artid exceptos los contenidos en p
 
         """
-        
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
+
+        #vamos a resolver este problema usando sets, así no tenemos que recorrer listas para eliminar los elementos de p, que es más eficiente
+
+        #primero hacemos un set con todos los ids de los artículos indexados
+        art_ids = set(self.articles.keys())
+
+        #después hacemos un set con los artículos que no queremos en el resultado
+        p_set = set(p)
+
+        #devolvemos la resta entre todos y los que no queremos, convirtiendo el set en una lista
+        return list(art_ids - p_set)
 
 
 
@@ -516,8 +584,12 @@ class SAR_Indexer:
         return: posting list con los artid incluidos en p1 y p2
 
         """
-        
-        pass
+        #Mismo enfoque, hacemos sets con las posting lists y devolvemos la intersección
+        #que es más eficiente que recorrer las listas para buscar los elementos comunes
+        p1_set = set(p1)
+        p2_set = set(p2)
+
+        return list(p1_set & p2_set)
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
@@ -542,7 +614,7 @@ class SAR_Indexer:
         """
 
         
-        pass
+        return list(set(p1) - set(p2))
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
