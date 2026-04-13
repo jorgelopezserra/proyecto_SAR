@@ -456,10 +456,28 @@ class SAR_Indexer:
         Muestra estadisticas de los indices
 
         """
-        pass
+        
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        print("=" * 40)
+        print("Number of indexed files:", len(self.docs))
+        print("-" * 40)
+        print("Number of indexed articles:", len(self.articles))
+        print("-" * 40)
+        print("Number of vocabulary terms:", len(self.index))
+        print("-" * 40)
+        if self.positional:
+            print("Positional index: YES")
+        else:
+            print("Positional index: NO")
+        print("-" * 40)
+        if self.semantic:
+            print("Semantic index: YES")
+            print("Number of chunks:", len(self.chuncks))
+        else:
+            print("Semantic index: NO")
+        print("=" * 40)
 
 
 
@@ -499,8 +517,55 @@ class SAR_Indexer:
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
 
+        result = None  # posting list acumulada
 
+        # Separamos los tokens respetando las comillas dobles
+        # re.findall extrae: secuencias entre comillas O palabras sueltas
+        tokens = re.findall(r'"[^"]+"|\S+', query)
 
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            negate = False
+
+            # Comprobamos si el token actual es NOT
+            if token.upper() == 'NOT':
+                negate = True
+                i += 1
+                if i >= len(tokens):
+                    break
+                token = tokens[i]
+
+            # Comprobamos si es una búsqueda posicional (entre comillas)
+            if token.startswith('"') and token.endswith('"'):
+                # Extraemos los términos dentro de las comillas y los tokenizamos
+                phrase = token[1:-1]  # quitamos las comillas
+                terms = self.tokenize(phrase)
+                posting = self.get_positionals(terms)
+            else:
+                # Búsqueda normal de un término
+                term = self.tokenize(token)
+                if len(term) == 0:
+                    i += 1
+                    continue
+                posting = self.get_posting(term[0])
+
+            # Si hay NOT, invertimos la posting list
+            if negate:
+                posting = self.reverse_posting(posting)
+
+            # Acumulamos con AND
+            if result is None:
+                result = posting
+            else:
+                result = self.and_posting(result, posting)
+
+            i += 1
+
+        if result is None:
+            return []
+
+        return result
 
     def get_posting(self, term:str):
         """
@@ -520,8 +585,15 @@ class SAR_Indexer:
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
 
-        #Simplemente devuelve la posting list del término o vacía si no se ha indexado el término
-        return self.index.get(term, [])
+        if term not in self.index:
+            return []
+        
+        if self.positional:
+            # self.index[term] = [frecuencia, {artid: [posiciones]}]
+            return list(self.index[term][1].keys())
+        else:
+            # self.index[term] = [artid1, artid2, ...]
+            return self.index[term]
 
 
 
@@ -540,7 +612,39 @@ class SAR_Indexer:
         #################################
         ## COMPLETAR PARA POSICIONALES ##
         #################################
-        pass
+        if not terms:
+            return []
+
+        # Empezamos con los artículos del primer término
+        primer_term = terms[0]
+        if primer_term not in self.index:
+            return []
+        
+        # artículos candidatos: los que contienen el primer término
+        candidatos = set(self.index[primer_term][1].keys())
+
+        for offset, term in enumerate(terms[1:], start=1):
+            if term not in self.index:
+                return []
+            
+            dict_term = self.index[term][1]  # {artid: [posiciones]}
+            nuevos_candidatos = set()
+
+            for artid in candidatos:
+                if artid not in dict_term:
+                    continue
+                
+                pos_primero = set(self.index[primer_term][1][artid])
+                pos_term = set(dict_term[artid])
+
+                # comprobamos si alguna posición del primer término tiene
+                # el término actual exactamente en +offset
+                if pos_primero & {p - offset for p in pos_term}:
+                    nuevos_candidatos.add(artid)
+
+            candidatos = nuevos_candidatos
+
+        return list(candidatos)
 
 
 
@@ -674,10 +778,32 @@ class SAR_Indexer:
         return: el numero de artículo recuperadas, para la opcion -T
 
         """
-        pass
+        
         ################
         ## COMPLETAR  ##
         ################
+        result, _ = self.solve_query(query)
+
+        print(f"Query: {query}")
+        print(f"Number of results: {len(result)}")
+
+        if not self.show_all:
+            result = result[:self.SHOW_MAX]
+
+        for orden, artid in enumerate(result):
+            docid, i = self.articles[artid]
+            filename = self.docs[docid]
+
+            # releemos el fichero y cogemos la línea i
+            with open(filename) as f:
+                for num, line in enumerate(f):
+                    if num == i:
+                        article = self.parse_article(line)
+                        break
+
+            print(f"{orden}\t{artid}\t{article['title']}\t{article['url']}")
+
+        return len(result)
 
 
 
