@@ -662,17 +662,24 @@ class SAR_Indexer:
         return: posting list con todos los artid exceptos los contenidos en p
 
         """
-
-        #vamos a resolver este problema usando sets, así no tenemos que recorrer listas para eliminar los elementos de p, que es más eficiente
-
-        #primero hacemos un set con todos los ids de los artículos indexados
-        art_ids = set(self.articles.keys())
-
-        #después hacemos un set con los artículos que no queremos en el resultado
-        p_set = set(p)
-
-        #devolvemos la resta entre todos y los que no queremos, convirtiendo el set en una lista
-        return list(art_ids - p_set)
+        result = []
+        articles = self.articles.keys()
+        i = 0
+        j = 0
+        while i < len(articles):
+            if j > len(p):
+                result.append(articles[i])
+                i+=1
+            elif articles[i] == p[j]:
+                i+=1
+                j+=1
+            elif articles[i] < p[j]:
+                result.append(articles[i])
+                i+=1
+            else:
+                j+=1
+                
+        return result
 
 
 
