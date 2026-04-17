@@ -62,8 +62,8 @@ class SAR_Indexer:
         """
         self.urls = set() # hash para las urls procesadas,
         self.index = {} # hash para el indice invertido de terminos --> clave: termino, valor: posting list
-        self.docs = {} # diccionario de terminos --> clave: entero(docid),  valor: ruta del fichero.
-        self.articles = {} # hash de articulos --> clave entero (artid), valor: la info necesaria para diferencia los artículos dentro de su fichero
+        self.docs = {} # diccionario de documentos --> clave: entero(docid),  valor: ruta del fichero.
+        self.articles = {} # hash de articulos --> clave string (artid), valor: la info necesaria para diferencia los artículos dentro de su fichero
         self.tokenizer = re.compile(r"\W+") # expresion regular para hacer la tokenizacion
         self.show_all = False # valor por defecto, se cambia con self.set_showall()
 
@@ -690,10 +690,36 @@ class SAR_Indexer:
         """
         #Mismo enfoque, hacemos sets con las posting lists y devolvemos la intersección
         #que es más eficiente que recorrer las listas para buscar los elementos comunes
-        p1_set = set(p1)
-        p2_set = set(p2)
+        ret = []
+        i, j = 0, 0 # i y j son punteros para recorrer las posting lists
 
-        return list(p1_set & p2_set)
+        #Vamos a hacer dos implementaciones, una para el caso posicional y otra para cuando no es posicional.
+        #Hemos considerado hacer un if al inicio, así no tenemos que hacer un if cada iteración, aunque quede el código más feo
+        
+        if not self.positional: 
+            # Mientras no hayamos llegado al final de ninguna lista
+            while i < len(p1) and j < len(p2):
+                if p1[i] == p2[j]: #Si son iguiales, añadimos a la lista ret
+                    ret.append(p1[i])
+                    i += 1
+                    j += 1
+                elif p1[i] < p2[j]: #Avanzamos el puntero del elemento menor
+                    i += 1
+                else:
+                    j += 1
+        else:
+            while i < len(p1) and j < len(p2):
+                if p1[i][0] == p2[j][0]: #Si son iguiales, añadimos a la lista ret
+                    ret.append(p1[i])
+                    i += 1
+                    j += 1
+                elif p1[i][0] < p2[j][0]: #Avanzamos el puntero del elemento menor
+                    i += 1
+                else:
+                    j += 1
+
+
+        return ret
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
@@ -716,9 +742,50 @@ class SAR_Indexer:
         return: posting list con los artid incluidos de p1 y no en p2
 
         """
+        ret = []
+        i, j = 0, 0 # i y j son punteros para recorrer las posting lists
 
+        if not self.positional:
+            while i < len(p1) and j < len(p2):
+                if p1[i] == p2[j]:
+                    # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
+                    i += 1
+                    j += 1
+                elif p1[i] < p2[j]:
+                    # Si p1 es menor, este elemento NO está en p2 (porque p2 es ordenada)
+                    # lo añadimos a la respuesta y avanzamos p1
+                    ret.append(p1[i])
+                    i += 1
+                else:
+                    # Si p1 es mayor, avanzamos p2 para intentar alcanzar el valor de p1
+                    j += 1
+                
+            # Si p2 terminó pero p1 aún tiene elementos, todos ellos van a la respuesta
+            while i < len(p1):
+                ret.append(p1[i])
+                i += 1
+        else:
+            #Los elementos de las posting lists son tuplas (artid, posiciones), debemos comparar los artid
+            while i < len(p1) and j < len(p2):
+                if p1[i][0] == p2[j][0]:
+                    # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
+                    i += 1
+                    j += 1
+                elif p1[i][0] < p2[j][0]:
+                    # Si p1 es menor, este elemento NO está en p2 (porque p2 es ordenada)
+                    # lo añadimos a la respuesta y avanzamos p1
+                    ret.append(p1[i][0])
+                    i += 1
+                else:
+                    # Si p1 es mayor, avanzamos p2 para intentar alcanzar el valor de p1
+                    j += 1
+                
+            # Si p2 terminó pero p1 aún tiene elementos, todos ellos van a la respuesta
+            while i < len(p1):
+                ret.append(p1[i][0])
+                i += 1
         
-        return list(set(p1) - set(p2))
+        return ret
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
