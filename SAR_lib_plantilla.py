@@ -366,7 +366,7 @@ class SAR_Indexer:
             "docid" es un identificador del documento que se indexa, necesario para el índice invertido   
 
         MODIFICA SELF.INDEX, SELF.DOCS Y SELF.ARTICLES
-        Depende de self.positional para el tipo de indexado:
+        Depende de self.positional para el tipo de indexado:                                    self.index[term][1].items() ---> (artid, posiciones)
             Si self.positional es True el formato de self index es termino --> [frecuencia del término, {artid: [posiciones del término en el artículo]}]
             Si self.positional es False el formato de self index es termino --> [artid de los artículos en los que aparece]      
 
@@ -410,7 +410,7 @@ class SAR_Indexer:
 
                 if self.positional:
                     if term not in self.index:
-                        #creamos la entgrada del término como la frecuencia del término y unn diccionario con los artículos en los que aparece y sus posiciones en cada artículo
+                        #creamos la entrada del término como la frecuencia del término y un diccionario con los artículos en los que aparece y sus posiciones en cada artículo
                         self.index[term] = [0, {}]
                     self.index[term][0] += 1 # incrementamos el contador de apariciones del término
                     dict_articulos = self.index[term][1]
@@ -657,6 +657,8 @@ class SAR_Indexer:
 
 
         param:  "p": posting list
+        si self.positional es True, entonces el formato de la posting list es [frecuencia del término, {artid: [posiciones del término en el artículo]}]
+        si es False, entonces el formato es [artid de los artículos]
 
 
         return: posting list con todos los artid exceptos los contenidos en p
@@ -666,18 +668,44 @@ class SAR_Indexer:
         articles = self.articles.keys()
         i = 0
         j = 0
-        while i < len(articles):
-            if j > len(p):
-                result.append(articles[i])
-                i+=1
-            elif articles[i] == p[j]:
-                i+=1
-                j+=1
-            elif articles[i] < p[j]:
-                result.append(articles[i])
-                i+=1
-            else:
-                j+=1
+        if not self.positional:
+            #Formato de p ---> [artid de los artículos]
+            while i < len(articles):
+                if j > len(p):
+                    result.append(articles[i])
+                    i+=1
+                elif articles[i] == p[j]:
+                    i+=1
+                    j+=1
+                elif articles[i] < p[j]:
+                    result.append(articles[i])
+                    i+=1
+                else:
+                    j+=1
+        else:
+            #Formato de p ----> [frecuencia del término, {artid: [posiciones del término en el artículo]}]
+            lista_p = p[1].items()
+            #Formato lista_p ---> [(artid, [posiciones])]
+
+            while i < len(articles):
+                #Extraemos el número de documento del elemento a analizar de la lista de TODOS los artículos (doc_a y art_a)
+                # y del elemento a analizar de la lista p
+                doc_a, art_a = self.articles[articles[i]]
+                doc_p, art_p = self.articles[lista_p[j][0]]
+
+                if j > len(lista_p): #Hemos acabado con la lista p, añadimos el resto de elementos de articles al resultado
+                    result.append(articles[i])
+                    i+=1
+                elif articles[i] == lista_p[j][0]: #El elemento está en ambas listas, avanzamos los dos
+                    i+=1
+                    j+=1
+                #La forma de comprobar si un art_id es menor que otro
+                elif (doc_a < doc_p) or (doc_a == doc_p and art_a < art_p): #El elemento no está en p, se añade y avanza el menor
+                    result.append(articles[i])
+                    i+=1
+                else:
+                    j+=1
+
                 
         return result
 
@@ -691,19 +719,30 @@ class SAR_Indexer:
 
         param:  "p1", "p2": posting lists sobre las que calcular
 
+        si self.positional es True, entonces el formato de la posting list es [frecuencia del término, {artid: [posiciones del término en el artículo]}]
+        si es False, entonces el formato es [artid de los artículos]
+
 
         return: posting list con los artid incluidos en p1 y p2
 
+        PROBLEMA: Al haber considerado los identificadores de los artículos como strings, hemos creado problemas de orden.
+        Por ejemplo, 2_122 sería menor a 2_3, pese a que uno sea el artículo 122 del documento 2 y el otro sea el artículo 3 del mismo documento
+
+        SOLUCIÓN: Extraemos el identificador del documento y del artículo de cada elemento de las posting lists, al estar en el diccionario self.articles
+        el coste de esta operación es constante.
+
         """
-        #Mismo enfoque, hacemos sets con las posting lists y devolvemos la intersección
-        #que es más eficiente que recorrer las listas para buscar los elementos comunes
+        
+
         ret = []
         i, j = 0, 0 # i y j son punteros para recorrer las posting lists
 
         #Vamos a hacer dos implementaciones, una para el caso posicional y otra para cuando no es posicional.
         #Hemos considerado hacer un if al inicio, así no tenemos que hacer un if cada iteración, aunque quede el código más feo
         
-        if not self.positional: 
+        if not self.positional:
+            #Formato p1 y p2 ---> [artid]
+
             # Mientras no hayamos llegado al final de ninguna lista
             while i < len(p1) and j < len(p2):
                 if p1[i] == p2[j]: #Si son iguiales, añadimos a la lista ret
@@ -715,12 +754,29 @@ class SAR_Indexer:
                 else:
                     j += 1
         else:
-            while i < len(p1) and j < len(p2):
-                if p1[i][0] == p2[j][0]: #Si son iguiales, añadimos a la lista ret
-                    ret.append(p1[i])
+            #Formato de p1 y p2 ---> [frecuencia del término, {artid: [posiciones del término en el artículo]}]
+
+
+            #Convertimos los diccionarios en listas sobre las que debemos iterar
+            lista_p1 = p1[1].items()
+            lista_p2 = p2[1].items()
+            #lista_p1 y lista_p2 son una lista con el formato [(artid, [posiciones])]
+
+            while i < len(lista_p1) and j < len(lista_p2):
+
+                #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
+                doc_1, art_1 = self.articles[lista_p1[i][0]]
+                doc_2, art_2 = self.articles[lista_p2[j][0]]
+
+
+
+                if lista_p1[i][0] == lista_p2[j][0]: #Si son iguiales, añadimos a la lista ret
+                    ret.append(lista_p1[i][0])
                     i += 1
                     j += 1
-                elif p1[i][0] < p2[j][0]: #Avanzamos el puntero del elemento menor
+
+                #Avanzamos el puntero del elemento menor, primero compreueba que el documento sea menor, si no, mira si son iguales y el número de artículo es menor
+                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2): 
                     i += 1
                 else:
                     j += 1
@@ -745,8 +801,14 @@ class SAR_Indexer:
 
         param:  "p1", "p2": posting lists sobre las que calcular
 
+        si self.positional es True, entonces el formato de la posting list es [frecuencia del término, {artid: [posiciones del término en el artículo]}]
+        si es False, entonces el formato es [artid de los artículos]
+
 
         return: posting list con los artid incluidos de p1 y no en p2
+
+        Mismo PROBLEMA y SOLUCIÓN que en el método and_posting, explicado detalladamente en el comentario inicial del método y
+        dentro del método and_posting 
 
         """
         ret = []
@@ -772,24 +834,35 @@ class SAR_Indexer:
                 ret.append(p1[i])
                 i += 1
         else:
+
+            lista_p1 = p1[1].items()
+            lista_p2 = p2[1].items()
+
             #Los elementos de las posting lists son tuplas (artid, posiciones), debemos comparar los artid
-            while i < len(p1) and j < len(p2):
-                if p1[i][0] == p2[j][0]:
+            while i < len(lista_p1) and j < len(lista_p2):
+                
+                #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
+                doc_1, art_1 = self.articles[lista_p1[i][0]]
+                doc_2, art_2 = self.articles[lista_p2[j][0]]
+
+                if lista_p1[i][0] == lista_p2[j][0]:
                     # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
                     i += 1
                     j += 1
-                elif p1[i][0] < p2[j][0]:
+
+                #Forma de comparar los artids
+                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2):
                     # Si p1 es menor, este elemento NO está en p2 (porque p2 es ordenada)
                     # lo añadimos a la respuesta y avanzamos p1
-                    ret.append(p1[i][0])
+                    ret.append(lista_p1[i][0])
                     i += 1
                 else:
                     # Si p1 es mayor, avanzamos p2 para intentar alcanzar el valor de p1
                     j += 1
                 
             # Si p2 terminó pero p1 aún tiene elementos, todos ellos van a la respuesta
-            while i < len(p1):
-                ret.append(p1[i][0])
+            while i < len(lista_p1):
+                ret.append(lista_p1[i][0])
                 i += 1
         
         return ret
