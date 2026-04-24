@@ -671,13 +671,19 @@ class SAR_Indexer:
         if not self.positional:
             #Formato de p ---> [artid de los artículos]
             while i < len(articles):
+                #Extraemos el número de documento del elemento a analizar de la lista de TODOS los artículos (doc_a y art_a)
+                # y del elemento a analizar de la lista p
+                doc_a, art_a = self.articles[articles[i]]
+                doc_p, art_p = self.articles[lista_p[j][0]]
+
                 if j > len(p):
                     result.append(articles[i])
                     i+=1
                 elif articles[i] == p[j]:
                     i+=1
                     j+=1
-                elif articles[i] < p[j]:
+                #La forma de comprobar si un art_id es menor que otro
+                elif (doc_a < doc_p) or (doc_a == doc_p and art_a < art_p):
                     result.append(articles[i])
                     i+=1
                 else:
@@ -745,11 +751,16 @@ class SAR_Indexer:
 
             # Mientras no hayamos llegado al final de ninguna lista
             while i < len(p1) and j < len(p2):
+
+                doc_1, art_1 = self.articles[lista_p1[i][0]]
+                doc_2, art_2 = self.articles[lista_p2[j][0]]
+
+
                 if p1[i] == p2[j]: #Si son iguiales, añadimos a la lista ret
                     ret.append(p1[i])
                     i += 1
                     j += 1
-                elif p1[i] < p2[j]: #Avanzamos el puntero del elemento menor
+                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2): #Avanzamos el puntero del elemento menor
                     i += 1
                 else:
                     j += 1
@@ -816,11 +827,17 @@ class SAR_Indexer:
 
         if not self.positional:
             while i < len(p1) and j < len(p2):
+
+                #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
+                doc_1, art_1 = self.articles[lista_p1[i][0]]
+                doc_2, art_2 = self.articles[lista_p2[j][0]]
+
                 if p1[i] == p2[j]:
                     # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
                     i += 1
                     j += 1
-                elif p1[i] < p2[j]:
+                #Forma de comparar los artids
+                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2):
                     # Si p1 es menor, este elemento NO está en p2 (porque p2 es ordenada)
                     # lo añadimos a la respuesta y avanzamos p1
                     ret.append(p1[i])
