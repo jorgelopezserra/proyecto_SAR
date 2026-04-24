@@ -69,6 +69,7 @@ class SAR_Indexer:
 
         # PARA LA AMPLIACION
         self.semantic = None
+        self.positional = False
         self.chuncks = []
         self.embeddings = []
         self.chunck_index = []
@@ -302,7 +303,7 @@ class SAR_Indexer:
 
         if file_or_dir.is_file():
             # is a file
-            self.index_file(root)
+            self.index_file(root, docid)
         elif file_or_dir.is_dir():
             # is a directory
             for d, _, files in os.walk(root):
@@ -384,7 +385,7 @@ class SAR_Indexer:
             #se convierte la línea del fichero en un diccionario con la información del artículo
             j = self.parse_article(line)
 
-            if self.already_in_index(j['url']):
+            if self.already_in_index(j):
                 continue #si el artículo ya ha sido indexado, se salta
             else:
                 self.urls.add(j['url']) #si la url no ha sido indexada, se añade a las urls procesadas
