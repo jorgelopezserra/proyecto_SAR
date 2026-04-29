@@ -666,7 +666,7 @@ class SAR_Indexer:
 
         """
         result = []
-        articles = self.articles.keys()
+        articles = list(self.articles.keys())
         i = 0
         j = 0
         if not self.positional:
@@ -675,7 +675,7 @@ class SAR_Indexer:
                 #Extraemos el número de documento del elemento a analizar de la lista de TODOS los artículos (doc_a y art_a)
                 # y del elemento a analizar de la lista p
                 doc_a, art_a = self.articles[articles[i]]
-                doc_p, art_p = self.articles[lista_p[j][0]]
+                doc_p, art_p = self.articles[p[j]]
 
                 if j > len(p):
                     result.append(articles[i])
@@ -753,8 +753,8 @@ class SAR_Indexer:
             # Mientras no hayamos llegado al final de ninguna lista
             while i < len(p1) and j < len(p2):
 
-                doc_1, art_1 = self.articles[lista_p1[i][0]]
-                doc_2, art_2 = self.articles[lista_p2[j][0]]
+                doc_1, art_1 = self.articles[p1[i]]
+                doc_2, art_2 = self.articles[p2[j]]
 
 
                 if p1[i] == p2[j]: #Si son iguiales, añadimos a la lista ret
@@ -770,8 +770,8 @@ class SAR_Indexer:
 
 
             #Convertimos los diccionarios en listas sobre las que debemos iterar
-            lista_p1 = p1[1].items()
-            lista_p2 = p2[1].items()
+            lista_p1 = list(p1[1].items())
+            lista_p2 = list(p2[1].items())
             #lista_p1 y lista_p2 son una lista con el formato [(artid, [posiciones])]
 
             while i < len(lista_p1) and j < len(lista_p2):
@@ -830,8 +830,8 @@ class SAR_Indexer:
             while i < len(p1) and j < len(p2):
 
                 #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
-                doc_1, art_1 = self.articles[lista_p1[i][0]]
-                doc_2, art_2 = self.articles[lista_p2[j][0]]
+                doc_1, art_1 = self.articles[p1[i]]
+                doc_2, art_2 = self.articles[p2[j]]
 
                 if p1[i] == p2[j]:
                     # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
@@ -853,8 +853,8 @@ class SAR_Indexer:
                 i += 1
         else:
 
-            lista_p1 = p1[1].items()
-            lista_p2 = p2[1].items()
+            lista_p1 = list(p1[1].items())
+            lista_p2 = list(p2[1].items())
 
             #Los elementos de las posting lists son tuplas (artid, posiciones), debemos comparar los artid
             while i < len(lista_p1) and j < len(lista_p2):
@@ -902,7 +902,7 @@ class SAR_Indexer:
         results = []
         for query in ql:
             if len(query) > 0 and query[0] != '#':
-                r, _ = self.solve_query(query)
+                r = self.solve_query(query)
                 results.append(len(r))
                 if verbose:
                     print(f'{query}\t{len(r)}')
@@ -919,7 +919,7 @@ class SAR_Indexer:
             if len(line) > 0 and line[0] != '#':
                 query, ref = line.split('\t')
                 reference = int(ref)
-                result, _ = self.solve_query(query)
+                result = self.solve_query(query)
                 result = len(result)
                 if reference == result:
                     print(f'{query}\t{result}')
@@ -947,7 +947,7 @@ class SAR_Indexer:
         ################
         ## COMPLETAR  ##
         ################
-        result, _ = self.solve_query(query)
+        result = self.solve_query(query)
 
         print(f"Query: {query}")
         print(f"Number of results: {len(result)}")
