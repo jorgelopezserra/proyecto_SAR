@@ -48,7 +48,7 @@ class SAR_Indexer:
 
 
     all_atribs = ['urls', 'index', 'docs', 'articles', 'tokenizer', 'show_all',
-                  "semantic", "chuncks", "embeddings", "chunck_index", "kdtree", "artid_to_emb"]
+                  'positional', "semantic", "chuncks", "embeddings", "chunck_index", "kdtree", "artid_to_emb"]
 
 
     def __init__(self):
@@ -669,51 +669,22 @@ class SAR_Indexer:
         articles = list(self.articles.keys())
         i = 0
         j = 0
-        if not self.positional:
-            #Formato de p ---> [artid de los artículos]
-            while i < len(articles):
-                #Extraemos el número de documento del elemento a analizar de la lista de TODOS los artículos (doc_a y art_a)
-                # y del elemento a analizar de la lista p
-                doc_a, art_a = self.articles[articles[i]]
-                doc_p, art_p = self.articles[p[j]]
-
-                if j > len(p):
-                    result.append(articles[i])
-                    i+=1
-                elif articles[i] == p[j]:
-                    i+=1
-                    j+=1
-                #La forma de comprobar si un art_id es menor que otro
-                elif (doc_a < doc_p) or (doc_a == doc_p and art_a < art_p):
-                    result.append(articles[i])
-                    i+=1
+        while i < len(articles):
+            if j < len(p):
+                if articles[i] == p[j]:
+                    i += 1
+                    j += 1
                 else:
-                    j+=1
-        else:
-            #Formato de p ----> [frecuencia del término, {artid: [posiciones del término en el artículo]}]
-            lista_p = p[1].items()
-            #Formato lista_p ---> [(artid, [posiciones])]
-
-            while i < len(articles):
-                #Extraemos el número de documento del elemento a analizar de la lista de TODOS los artículos (doc_a y art_a)
-                # y del elemento a analizar de la lista p
-                doc_a, art_a = self.articles[articles[i]]
-                doc_p, art_p = self.articles[lista_p[j][0]]
-
-                if j > len(lista_p): #Hemos acabado con la lista p, añadimos el resto de elementos de articles al resultado
-                    result.append(articles[i])
-                    i+=1
-                elif articles[i] == lista_p[j][0]: #El elemento está en ambas listas, avanzamos los dos
-                    i+=1
-                    j+=1
-                #La forma de comprobar si un art_id es menor que otro
-                elif (doc_a < doc_p) or (doc_a == doc_p and art_a < art_p): #El elemento no está en p, se añade y avanza el menor
-                    result.append(articles[i])
-                    i+=1
-                else:
-                    j+=1
-
-                
+                    doc_a, art_a = self.articles[articles[i]]
+                    doc_p, art_p = self.articles[p[j]]
+                    if (doc_a < doc_p) or (doc_a == doc_p and art_a < art_p):
+                        result.append(articles[i])
+                        i += 1
+                    else:
+                        j += 1
+            else:
+                result.append(articles[i])
+                i += 1
         return result
 
 
@@ -742,58 +713,19 @@ class SAR_Indexer:
         
 
         ret = []
-        i, j = 0, 0 # i y j son punteros para recorrer las posting lists
-
-        #Vamos a hacer dos implementaciones, una para el caso posicional y otra para cuando no es posicional.
-        #Hemos considerado hacer un if al inicio, así no tenemos que hacer un if cada iteración, aunque quede el código más feo
-        
-        if not self.positional:
-            #Formato p1 y p2 ---> [artid]
-
-            # Mientras no hayamos llegado al final de ninguna lista
-            while i < len(p1) and j < len(p2):
-
+        i, j = 0, 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                ret.append(p1[i])
+                i += 1
+                j += 1
+            else:
                 doc_1, art_1 = self.articles[p1[i]]
                 doc_2, art_2 = self.articles[p2[j]]
-
-
-                if p1[i] == p2[j]: #Si son iguiales, añadimos a la lista ret
-                    ret.append(p1[i])
-                    i += 1
-                    j += 1
-                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2): #Avanzamos el puntero del elemento menor
+                if (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2):
                     i += 1
                 else:
                     j += 1
-        else:
-            #Formato de p1 y p2 ---> [frecuencia del término, {artid: [posiciones del término en el artículo]}]
-
-
-            #Convertimos los diccionarios en listas sobre las que debemos iterar
-            lista_p1 = list(p1[1].items())
-            lista_p2 = list(p2[1].items())
-            #lista_p1 y lista_p2 son una lista con el formato [(artid, [posiciones])]
-
-            while i < len(lista_p1) and j < len(lista_p2):
-
-                #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
-                doc_1, art_1 = self.articles[lista_p1[i][0]]
-                doc_2, art_2 = self.articles[lista_p2[j][0]]
-
-
-
-                if lista_p1[i][0] == lista_p2[j][0]: #Si son iguiales, añadimos a la lista ret
-                    ret.append(lista_p1[i][0])
-                    i += 1
-                    j += 1
-
-                #Avanzamos el puntero del elemento menor, primero compreueba que el documento sea menor, si no, mira si son iguales y el número de artículo es menor
-                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2): 
-                    i += 1
-                else:
-                    j += 1
-
-
         return ret
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
@@ -824,65 +756,23 @@ class SAR_Indexer:
 
         """
         ret = []
-        i, j = 0, 0 # i y j son punteros para recorrer las posting lists
-
-        if not self.positional:
-            while i < len(p1) and j < len(p2):
-
-                #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
-                doc_1, art_1 = self.articles[p1[i]]
-                doc_2, art_2 = self.articles[p2[j]]
-
+        i, j = 0, 0
+        while i < len(p1):
+            if j < len(p2):
                 if p1[i] == p2[j]:
-                    # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
                     i += 1
                     j += 1
-                #Forma de comparar los artids
-                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2):
-                    # Si p1 es menor, este elemento NO está en p2 (porque p2 es ordenada)
-                    # lo añadimos a la respuesta y avanzamos p1
-                    ret.append(p1[i])
-                    i += 1
                 else:
-                    # Si p1 es mayor, avanzamos p2 para intentar alcanzar el valor de p1
-                    j += 1
-                
-            # Si p2 terminó pero p1 aún tiene elementos, todos ellos van a la respuesta
-            while i < len(p1):
+                    doc_1, art_1 = self.articles[p1[i]]
+                    doc_2, art_2 = self.articles[p2[j]]
+                    if (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2):
+                        ret.append(p1[i])
+                        i += 1
+                    else:
+                        j += 1
+            else:
                 ret.append(p1[i])
                 i += 1
-        else:
-
-            lista_p1 = list(p1[1].items())
-            lista_p2 = list(p2[1].items())
-
-            #Los elementos de las posting lists son tuplas (artid, posiciones), debemos comparar los artid
-            while i < len(lista_p1) and j < len(lista_p2):
-                
-                #Extraemos el docid y el número de artículo dentro de ese documento de cada elemento, así podemos comparar correctamente
-                doc_1, art_1 = self.articles[lista_p1[i][0]]
-                doc_2, art_2 = self.articles[lista_p2[j][0]]
-
-                if lista_p1[i][0] == lista_p2[j][0]:
-                    # Si son iguales, el elemento de p1 no se añade y avanzamos ambos punteros
-                    i += 1
-                    j += 1
-
-                #Forma de comparar los artids
-                elif (doc_1 < doc_2) or (doc_1 == doc_2 and art_1 < art_2):
-                    # Si p1 es menor, este elemento NO está en p2 (porque p2 es ordenada)
-                    # lo añadimos a la respuesta y avanzamos p1
-                    ret.append(lista_p1[i][0])
-                    i += 1
-                else:
-                    # Si p1 es mayor, avanzamos p2 para intentar alcanzar el valor de p1
-                    j += 1
-                
-            # Si p2 terminó pero p1 aún tiene elementos, todos ellos van a la respuesta
-            while i < len(lista_p1):
-                ret.append(lista_p1[i][0])
-                i += 1
-        
         return ret
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
