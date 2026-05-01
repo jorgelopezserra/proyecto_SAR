@@ -616,36 +616,45 @@ class SAR_Indexer:
         if not terms:
             return []
 
-        # Empezamos con los artículos del primer término
-        primer_term = terms[0]
-        if primer_term not in self.index:
-            return []
-        
-        # artículos candidatos: los que contienen el primer término
-        candidatos = set(self.index[primer_term][1].keys())
-
-        for offset, term in enumerate(terms[1:], start=1):
+        # Si algún término no está en el índice, la frase no puede aparecer
+        for term in terms:
             if term not in self.index:
                 return []
-            
-            dict_term = self.index[term][1]  # {artid: [posiciones]}
-            nuevos_candidatos = set()
 
-            for artid in candidatos:
-                if artid not in dict_term:
+        # Diccionario: artid -> posiciones iniciales válidas de la frase
+        # Al principio, las posiciones válidas son todas las posiciones del primer término
+        primer_term = terms[0]
+        candidatos = {}
+
+        for artid, posiciones in self.index[primer_term][1].items():
+            candidatos[artid] = set(posiciones)
+
+        # Para cada término siguiente, vamos filtrando las posiciones iniciales válidas
+        for offset, term in enumerate(terms[1:], start=1):
+            posting_term = self.index[term][1]
+            nuevos_candidatos = {}
+
+            for artid, posiciones_inicio in candidatos.items():
+                if artid not in posting_term:
                     continue
-                
-                pos_primero = set(self.index[primer_term][1][artid])
-                pos_term = set(dict_term[artid])
 
-                # comprobamos si alguna posición del primer término tiene
-                # el término actual exactamente en +offset
-                if pos_primero & {p - offset for p in pos_term}:
-                    nuevos_candidatos.add(artid)
+                posiciones_term = set(posting_term[artid])
+
+                # Conservamos solo las posiciones p donde el término actual aparece en p + offset
+                posiciones_validas = {
+                    p for p in posiciones_inicio
+                    if p + offset in posiciones_term
+                }
+
+                if posiciones_validas:
+                    nuevos_candidatos[artid] = posiciones_validas
 
             candidatos = nuevos_candidatos
 
-        return sorted(candidatos, key=lambda artid: self.articles[artid])
+            if not candidatos:
+                return []
+
+        return sorted(candidatos.keys(), key=lambda artid: self.articles[artid])
 
 
 
