@@ -588,13 +588,13 @@ class SAR_Indexer:
 
         if term not in self.index:
             return []
-        
+        #Deben esta ordenados por la tupla (docid, art_i) no por el string
         if self.positional:
             # self.index[term] = [frecuencia, {artid: [posiciones]}]
-            return list(self.index[term][1].keys())
+            return sorted(self.index[term][1].keys(), key=lambda artid: self.articles[artid])
         else:
             # self.index[term] = [artid1, artid2, ...]
-            return self.index[term]
+            return sorted(self.index[term], key=lambda artid: self.articles[artid])
 
 
 
@@ -645,7 +645,7 @@ class SAR_Indexer:
 
             candidatos = nuevos_candidatos
 
-        return list(candidatos)
+        return sorted(candidatos, key=lambda artid: self.articles[artid])
 
 
 
@@ -711,7 +711,6 @@ class SAR_Indexer:
 
         """
         
-
         ret = []
         i, j = 0, 0
         while i < len(p1) and j < len(p2):
