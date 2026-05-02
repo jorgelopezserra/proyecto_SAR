@@ -195,8 +195,13 @@ class SAR_Indexer:
         
         """
 
-        #1 - completar
+        #Extraemos los chuncks del texto del artículo
+        chuncks = sent_tokenize(txt)
 
+        #Añadimos los chuncks a la lista de chuncks
+        self.chuncks.extend(chuncks)
+        #Falta por actualizar self.chunck_index y self.artid_to_emb
+        #pero no sé qué estructuras son ni qué hacen ni nada
         #2 - completar
 
         pass             
@@ -213,7 +218,8 @@ class SAR_Indexer:
         
         """
         print(f"Creating kdtree ...", end="")
-	    # completar
+        self.model.fit(self.chuncks)
+
         print("done!")
 
 
@@ -235,11 +241,18 @@ class SAR_Indexer:
         
         # COMPLETAR
 
-        # 1
-        # 2
+        # 1 y 2
+        top_k = self.MAX_EMBEDDINGS
+        resultado = self.model.query(query, top_k=top_k)
+        
         # 3
-        # 4
-        # 5
+        while resultado[-1][0] <= self.semantic_threshold:
+            top_k += 5
+            #Si hemos recuperado todos los embeddings, actualizamos el resultado y salimos del bucle
+            if top_k >= self.embeddings.shape[0]:
+                resultado = self.model.query(query, top_k=self.embeddings.shape[0])
+                break
+            resultado = self.model.query(query, top_k=top_k)
 
 
     def semantic_reranking(self, query:str, articles: List[int]):
