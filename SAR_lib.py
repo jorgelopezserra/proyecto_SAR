@@ -185,7 +185,7 @@ class SAR_Indexer:
 
             
 
-    def update_chuncks(self, txt:str, artid:int):
+    def update_chuncks(self, txt:str, artid:str):
         """
         
         Añade los chuncks (frases en nuestro caso) del texto "txt" correspondiente al articulo "artid" en la lista de chuncks
@@ -196,10 +196,12 @@ class SAR_Indexer:
         """
 
         #Extraemos los chuncks del texto del artículo
-        chuncks = sent_tokenize(txt)
+        chuncks = nltk.sent_tokenize(txt)
 
         #Añadimos los chuncks a la lista de chuncks
         self.chuncks.extend(chuncks)
+        # Por cada frase añadida, guardamos el artículo al que pertenece
+        self.chunck_index.extend([artid] * len(chuncks))
         #Falta por actualizar self.chunck_index y self.artid_to_emb
         #pero no sé qué estructuras son ni qué hacen ni nada
         #2 - completar
@@ -269,11 +271,58 @@ class SAR_Indexer:
         """
         
         self.load_semantic_model()
-        # COMPLETAR
-        # 1
-        # 2
-        # 3
-        # 4
+
+        if len(articles) == 0:
+            return []
+
+        if len(self.chuncks) == 0:
+            return articles
+
+        articles_set = set(articles)
+        total_chunks = len(self.chuncks)
+
+        #2
+        # Inicialmente top_k puede ser MAX_EMBEDDINGS.
+        # Si hay menos chunks que MAX_EMBEDDINGS, usamos el total disponible.
+        top_k = min(self.MAX_EMBEDDINGS, total_chunks)
+
+        ranking = []
+        encontrados = set()
+
+        #3
+        # Si entre los artículos recuperados semánticamente no están todos seguimos aumentando top_k.
+        while len(encontrados) < len(articles_set) and top_k <= total_chunks:
+
+            # 1
+            # Utilizamos el método query del modelo semántico.
+            resultados_semanticos = self.model.query(query, top_k=top_k)
+
+            #3
+            # A partir de los chunks obtenemos los artículos.
+            for distancia, indice_chunk in resultados_semanticos:
+                artid = self.chunck_index[indice_chunk]
+
+                #4
+                # Usamos el orden de la lista devuelta por el KDTree para ordenar articles.
+                # Como resultados_semanticos viene ordenado por similitud,  vamos añadiendo los artículos a ranking en ese mismo orden.
+                if artid in articles_set and artid not in encontrados:
+                    ranking.append(artid)
+                    encontrados.add(artid)
+
+            # Si ya hemos consultado todos los chunks, no podemos aumentar más top_k.
+            if top_k == total_chunks:
+                break
+
+            # Paso 3:
+            # Como todavía faltan artículos, volvemos al paso 2 aumentando top_k.
+            top_k = min(top_k + self.MAX_EMBEDDINGS, total_chunks)
+
+        # Añadimos al final los artículos que no hayan aparecido entre los chunks recuperados.
+        for artid in articles:
+            if artid not in encontrados:
+                ranking.append(artid)
+
+        return ranking
     
 
     ###############################
@@ -332,7 +381,8 @@ class SAR_Indexer:
         #####################################################
         ## COMPLETAR SI ES NECESARIO FUNCIONALIDADES EXTRA ##
         #####################################################
-        
+        if self.semantic:
+            self.create_kdtree()
         
     def parse_article(self, raw_line:str) -> Dict[str, str]:
         """
@@ -409,6 +459,9 @@ class SAR_Indexer:
             article_id = f'{docid}_{i}'
             self.articles[article_id] = (docid, i) # se añade el artículo al diccionario de artículos, es una tupla del docid y la línea dentro del documento
 
+            #Para la segunda parte del proyecto
+            if self.semantic:
+                self.update_chuncks(j[self.DEFAULT_FIELD], article_id)
 
             #Tokenizamos el texto a indexar, que es la clave DEFAULT_FIELD, el método tokenize pasa todo a minúsculas
             # y elimina los símbolos no alfanuméricos. Función ya dada
