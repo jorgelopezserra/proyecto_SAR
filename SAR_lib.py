@@ -72,7 +72,7 @@ class SAR_Indexer:
         self.positional = False
         self.chuncks = []
         self.embeddings = []
-        self.chunck_index = []
+        self.chunck_index = [] # una lista paralela a self.chuncks, la posición i de la lista chuncks es una frase, y la misma posición i de chuncks_index es el artid de ese chunck.
         self.artid_to_emb = {}
         self.kdtree = None
         self.semantic_threshold = None
@@ -196,15 +196,24 @@ class SAR_Indexer:
         """
 
         #Extraemos los chuncks del texto del artículo
-        chuncks = nltk.sent_tokenize(txt)
+        chuncks_txt = sent_tokenize(txt)
+
+        #Para saber qué índices ocupa cada chunck en self.chuncks, debemos saber la longitud de esa lista, ese es el índice del primer chunck que añadimos.
+        primer_chunck_idx = len(self.chuncks)
+        ultimo_chunck_idx = primer_chunck_idx + len(chuncks_txt) - 1
+        
 
         #Añadimos los chuncks a la lista de chuncks
-        self.chuncks.extend(chuncks)
-        # Por cada frase añadida, guardamos el artículo al que pertenece
-        self.chunck_index.extend([artid] * len(chuncks))
-        #Falta por actualizar self.chunck_index y self.artid_to_emb
-        #pero no sé qué estructuras son ni qué hacen ni nada
-        #2 - completar
+        self.chuncks.extend(chuncks_txt)
+
+        #Actualizamos self.chunck_index. Es una lista paralela a self.chuncks 
+        lista_artids = [artid for _ in range(len(chuncks_txt))]
+        self.chunck_index.extend(lista_artids)
+
+        #Actualizamos self.artid_to_emb. Es un diccionario que asocia cada artid con los índices de sus chuncks en self.chuncks
+        self.artid_to_emb[artid] = []
+        for i in range(primer_chunck_idx, ultimo_chunck_idx + 1):
+            self.artid_to_emb[artid].append(i)
 
         pass             
         
@@ -249,12 +258,25 @@ class SAR_Indexer:
         
         # 3
         while resultado[-1][0] <= self.semantic_threshold:
-            top_k += 5
+            top_k += 20
             #Si hemos recuperado todos los embeddings, actualizamos el resultado y salimos del bucle
             if top_k >= self.embeddings.shape[0]:
-                resultado = self.model.query(query, top_k=self.embeddings.shape[0])
+                resultado = self.model.query(query, top_k=len(self.embeddings))
                 break
             resultado = self.model.query(query, top_k=top_k)
+
+        # 5
+        indices = resultado[:][1] # para todas las tuplas (:) cogemos el segundo elemento, el índice
+
+        #Creamos la lista de artículos que devolveremos
+        lista_articulos = []
+        for index in indices:
+            lista_articulos.append(self.chunck_index[index])
+        
+        #Convertimos a set y de vuelta a list para eliminar repetidos
+        lista_articulos = list(set(lista_articulos))
+
+        return lista_articulos
 
 
     def semantic_reranking(self, query:str, articles: List[int]):
