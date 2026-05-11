@@ -196,9 +196,9 @@ class SAR_Indexer:
         """
 
         #Extraemos los chuncks del texto del artículo
-        chuncks_txt = sent_tokenize(txt)
+        chuncks_txt = nltk.sent_tokenize(txt)
 
-        #Para saber qué índices ocupa cada chunck en self.chuncks, debemos saber la longitud de esa lista, ese es el índice del primer chunck que añadimos.
+        #Para saber qué índices  ocupa cada chunck en self.chuncks, debemos saber la longitud de esa lista, ese es el índice del primer chunck que añadimos.
         primer_chunck_idx = len(self.chuncks)
         ultimo_chunck_idx = primer_chunck_idx + len(chuncks_txt) - 1
         
@@ -601,6 +601,9 @@ class SAR_Indexer:
         
         if query is None or len(query) == 0:
             return []
+        
+        if self.semantic_threshold is not None:
+            return self.solve_semantic_query(query)
 
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
@@ -653,6 +656,9 @@ class SAR_Indexer:
 
         if result is None:
             return []
+        
+        if self.semantic_ranking:
+            result = self.semantic_reranking(query, result)
 
         return result
 
