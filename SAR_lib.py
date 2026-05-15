@@ -214,8 +214,7 @@ class SAR_Indexer:
         self.artid_to_emb[artid] = []
         for i in range(primer_chunck_idx, ultimo_chunck_idx + 1):
             self.artid_to_emb[artid].append(i)
-
-        pass             
+             
         
 
     def create_kdtree(self):
@@ -766,8 +765,6 @@ class SAR_Indexer:
 
 
         param:  "p": posting list
-        si self.positional es True, entonces el formato de la posting list es [frecuencia del término, {artid: [posiciones del término en el artículo]}]
-        si es False, entonces el formato es [artid de los artículos]
 
 
         return: posting list con todos los artid exceptos los contenidos en p
@@ -804,9 +801,6 @@ class SAR_Indexer:
         Calcula el AND de dos posting list de forma EFICIENTE
 
         param:  "p1", "p2": posting lists sobre las que calcular
-
-        si self.positional es True, entonces el formato de la posting list es [frecuencia del término, {artid: [posiciones del término en el artículo]}]
-        si es False, entonces el formato es [artid de los artículos]
 
 
         return: posting list con los artid incluidos en p1 y p2
@@ -851,9 +845,6 @@ class SAR_Indexer:
         Esta funcion se incluye por si es util, no es necesario utilizarla.
 
         param:  "p1", "p2": posting lists sobre las que calcular
-
-        si self.positional es True, entonces el formato de la posting list es [frecuencia del término, {artid: [posiciones del término en el artículo]}]
-        si es False, entonces el formato es [artid de los artículos]
 
 
         return: posting list con los artid incluidos de p1 y no en p2
@@ -966,6 +957,3 @@ class SAR_Indexer:
             print(f"{orden}\t{artid}\t{article['title']}\t{article['url']}")
 
         return len(result)
-
-
-
