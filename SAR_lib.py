@@ -687,10 +687,10 @@ class SAR_Indexer:
         #Deben esta ordenados por la tupla (docid, art_i) no por el string
         if self.positional:
             # self.index[term] = [frecuencia, {artid: [posiciones]}]
-            return sorted(self.index[term][1].keys(), key=lambda artid: self.articles[artid])
+            return list(self.index[term][1].keys())
         else:
             # self.index[term] = [artid1, artid2, ...]
-            return sorted(self.index[term], key=lambda artid: self.articles[artid])
+            return self.index[term]
 
 
 
