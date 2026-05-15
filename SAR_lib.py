@@ -254,6 +254,9 @@ class SAR_Indexer:
         
         # COMPLETAR
 
+        self.model.set_embeddings(self.embeddings)
+        self.model.set_kdtree(self.kdtree)
+
         # 1 y 2
         top_k = self.MAX_EMBEDDINGS
         resultado = self.model.query(query, top_k=top_k)
