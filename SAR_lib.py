@@ -228,9 +228,11 @@ class SAR_Indexer:
         # 2: Opcionalmente se puede guardar información del modelo semántico (kdtree y/o embeddings) en el SAR_Indexer
         
         """
-        print(f"Creating kdtree ...", end="")
+        print(f"Creating kdtree ...")
         self.model.fit(self.chuncks)
-
+        self.embeddings = self.model.embeddings
+        self.kdtree = self.model.kdtree
+        
         print("done!")
 
 
