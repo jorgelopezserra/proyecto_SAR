@@ -258,10 +258,12 @@ class SAR_Indexer:
 
         # 1 y 2
         top_k = self.MAX_EMBEDDINGS
+
+        query = query.lower()
         resultado = self.model.query(query, top_k=top_k)
         
         # 3
-        while resultado[-1][0] <= self.semantic_threshold:
+        while resultado[-1][0] < self.semantic_threshold:
             top_k += 20
             #Si hemos recuperado todos los embeddings, actualizamos el resultado y salimos del bucle
             if top_k >= self.embeddings.shape[0]:
@@ -270,17 +272,21 @@ class SAR_Indexer:
             resultado = self.model.query(query, top_k=top_k)
 
         # 5
-        indices = resultado[:][1] # para todas las tuplas (:) cogemos el segundo elemento, el índice
-
-        #Creamos la lista de artículos que devolveremos
         lista_articulos = []
-        for index in indices:
-            lista_articulos.append(self.chunck_index[index])
-        
-        #Convertimos a set y de vuelta a list para eliminar repetidos
-        lista_articulos = list(set(lista_articulos))
+        vistos = set()
+
+        for distancia, indice_chunk in resultado:
+
+            # Solo aceptamos los chunks cuya distancia esté dentro del umbral
+            if distancia < self.semantic_threshold:
+                artid = self.chunck_index[indice_chunk]
+
+                if artid not in vistos:
+                    lista_articulos.append(artid)
+                    vistos.add(artid)
 
         return lista_articulos
+        
 
 
     def semantic_reranking(self, query:str, articles: List[int]):
